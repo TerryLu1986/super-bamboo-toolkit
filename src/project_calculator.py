@@ -81,7 +81,7 @@ def compute_all(
 
     # ---- 经济效益 ----
     raw_rev = raw_material_revenue(y_peak["wet_tons"], wet_price)
-    carbon_rev = carbon_asset_value(co2, co2_price)
+    carbon_rev = cv
     total_rev = raw_rev + carbon_rev
     pellet_rev = pellet_processing_revenue(y_peak["wet_tons"])
 

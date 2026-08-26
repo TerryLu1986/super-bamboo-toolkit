@@ -8,7 +8,7 @@ from src.utils import mu_to_hectare
 _RAMP_RATIOS = {1: 0.3, 2: 0.6, 3: 0.8}
 
 
-def annual_yield(area_mu, variety_yield_t_ha=30, moisture_pct=30, year=1):
+def annual_yield(area_mu, variety_yield_t_ha=30, moisture_pct=30, year=1, peak_year=3):
     """单年生物量产量估算(吨)
 
     亩转公顷: area_mu * 0.0667
@@ -75,8 +75,8 @@ def yield_curve(area_mu, variety_yield_t_ha=30, moisture_pct=30, peak_year=3, ye
     area_ha = mu_to_hectare(area_mu)
     curve = []
     for y in range(1, years + 1):
-        factor = min(1.0, y / peak_year)
-        dry_tons = area_ha * variety_yield_t_ha * factor
-        wet_tons = dry_tons / (1.0 - moisture_pct / 100.0)
-        curve.append({"year": y, "dry_tons": dry_tons, "wet_tons": wet_tons})
+        r = annual_yield(area_mu, variety_yield_t_ha, moisture_pct, year=y, peak_year=peak_year)
+        dry = r["dry_tons"]
+        wet = r["wet_tons"]
+        curve.append({"year": y, "dry_tons": dry, "wet_tons": wet})
     return curve

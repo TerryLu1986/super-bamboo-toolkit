@@ -105,7 +105,7 @@ def roi_analysis(total_investment, annual_revenue, annual_cost, years=25):
         dict: {'payback_years': float, 'net_profit_25y': float, 'annual_net': float}
     """
     annual_net = annual_revenue - annual_cost
-    payback_years = total_investment / annual_net if annual_net else float("inf")
+    payback_years = total_investment / annual_net if annual_net > 0 else float("inf")
     net_profit = annual_net * years - total_investment
     return {
         "payback_years": float(payback_years),
@@ -126,6 +126,10 @@ def sensitivity_analysis(base_value, param_range=0.2, steps=5):
         list: [{'param_change': float, 'result': float}, ...]
     """
     results = []
+    if steps < 1:
+        raise ValueError(f"steps 至少为1, 当前为 {steps}")
+    if steps == 1:
+        return [{"param_change": 0.0, "result": float(base_value)}]
     for i in range(steps):
         change = -param_range + 2 * param_range * i / (steps - 1)
         results.append({

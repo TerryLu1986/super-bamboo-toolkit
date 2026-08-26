@@ -29,12 +29,12 @@ def test_yield_curve_length():
     assert len(curve) == 25
 
 def test_yield_curve_monotonic():
-    """达产前产量递增，达产后稳定"""
+    """达产前产量递增，达产后稳定（第4年起=丰产期100%）"""
     curve = yield_curve(10000, 30, peak_year=3, years=10)
-    for i in range(1, 3):
+    for i in range(1, 4):
         assert curve[i]["dry_tons"] >= curve[i-1]["dry_tons"]
-    for i in range(3, 10):
-        assert curve[i]["dry_tons"] == curve[2]["dry_tons"]
+    for i in range(4, 10):
+        assert curve[i]["dry_tons"] == curve[3]["dry_tons"]
 
 
 # === carbon_sequestration ===

@@ -325,7 +325,7 @@ def main():
 
     st.sidebar.divider()
     st.sidebar.markdown("📖 数据来源：IPCC指南、学术期刊、碳市场公开数据")
-    st.sidebar.markdown("🔗 [GitHub仓库](https://github.com/)")
+    st.sidebar.markdown("🔗 [GitHub仓库](https://github.com/TerryLu1986/super-bamboo-toolkit)")
 
     # ---------- 核心计算（前端与 CLI 共用同一套逻辑）----------
     r = compute_all(

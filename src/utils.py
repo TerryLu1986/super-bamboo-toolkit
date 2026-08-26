@@ -30,7 +30,7 @@ def mu_to_hectare(area_mu):
     Returns:
         float: 面积（公顷）
     """
-    return area_mu * 0.0667
+    return area_mu / 15
 
 
 def hectare_to_mu(area_ha):
