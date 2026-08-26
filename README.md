@@ -79,6 +79,48 @@ pip install pytest
 python3 -m pytest tests/ --doctest-modules src/ -q
 ```
 
+## 📁 项目结构
+
+```text
+super-bamboo-toolkit/
+├── src/
+│   ├── biomass_yield.py         # 产量计算：达产曲线、干湿基换算
+│   ├── carbon_sequestration.py  # 碳汇测算：生物量/土壤固碳、林业对比
+│   ├── economic_model.py        # 经济模型：收益、ROI、NPV/IRR、敏感性
+│   ├── seedling_planner.py      # 种苗规划：需求量、分批计划、成本
+│   ├── project_calculator.py    # 计算中枢：compute_all + 报告生成 + NPV多因素敏感性
+│   ├── cli.py                   # 命令行入口
+│   └── utils.py                 # 配置加载、亩/公顷换算
+├── app/
+│   └── streamlit_app.py         # Web 界面（五个功能 Tab）
+├── config/
+│   └── default_params.yaml      # 全部默认参数（集中管理）
+├── data/
+│   └── references.yaml          # 参考数据来源
+└── tests/
+    └── test_all.py              # pytest 测试（含 doctest）
+```
+
+## 🛠️ 开发指南
+
+```bash
+# 建议使用虚拟环境
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt pytest
+
+# 运行全部测试（单元测试 + doctest）
+python3 -m pytest tests/ --doctest-modules src/ -q
+
+# 本地调试 Web 界面
+streamlit run app/streamlit_app.py
+```
+
+约定：
+
+- 计算逻辑全部在 `src/` 以纯函数实现并配 doctest；`app/` 与 `src/cli.py` 只做展示与参数接线。前端与 CLI 共用 `compute_all()`，两端结果永远一致
+- 新增计算能力的路径：模块内写函数 + doctest → `tests/test_all.py` 补用例 → 需要对外暴露时在 `compute_all()` 接线
+- 所有默认参数集中在 `config/default_params.yaml`，代码内置同值回退，调参无需改代码
+
 ## ⚙️ 参数说明
 
 所有参数均可通过侧边栏、CLI 标志、函数参数或 `config/default_params.yaml` 自定义，无硬编码值。
