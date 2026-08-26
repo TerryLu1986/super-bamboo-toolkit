@@ -68,9 +68,9 @@ def apply_green_theme(fig, title, x_title="", y_title="", height=420, hovermode=
         ),
         hovermode=hovermode,
         height=height,
-        margin=dict(l=10, r=10, t=58, b=14),
+        margin=dict(l=10, r=10, t=76, b=14),
         legend=dict(
-            orientation="h", yanchor="bottom", y=1.06, xanchor="right", x=1,
+            orientation="h", yanchor="bottom", y=1.045, xanchor="left", x=0,
             font=dict(size=11.5, color="#424242"),
         ),
         hoverlabel=dict(font_size=12),
