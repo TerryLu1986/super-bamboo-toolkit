@@ -48,7 +48,7 @@ def total_annual_revenue(area_mu, config=None, year=None):
     Args:
         area_mu: 种植面积(亩)
         config: 参数配置dict, 不传则加载 config/default_params.yaml
-        year: 计算年份(种植第几年); None 时取丰产期(第 peak_year+1 年,
+        year: 计算年份(种植第几年); None 时取丰产期(第 peak_year 年,
             达产系数=1.0), 默认None
 
     Returns:
@@ -62,7 +62,7 @@ def total_annual_revenue(area_mu, config=None, year=None):
     economics = config.get("economics", {})
     peak_year = biomass.get("peak_year", 3)
     if year is None:
-        year = peak_year + 1  # 丰产期
+        year = peak_year  # 丰产期(第 peak_year 年即满产)
 
     _yield = annual_yield(
         area_mu,

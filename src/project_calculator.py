@@ -97,8 +97,8 @@ def compute_all(
     if discount_rate is None:
         discount_rate = _cfg_value("economics", "discount_rate", 0.08)
 
-    # ---- 产量：以 peak_year+1 年计算丰产期产量（此时达产系数=1.0）----
-    y_peak = annual_yield(area_mu, variety_yield, moisture_pct, year=peak_year + 1)
+    # ---- 产量：以 peak_year 年计算丰产期产量（当年达产系数即 1.0）----
+    y_peak = annual_yield(area_mu, variety_yield, moisture_pct, year=peak_year)
 
     # ---- 碳汇测算 ----
     co2 = annual_co2_sequestration(area_mu, y_peak["dry_tons"])

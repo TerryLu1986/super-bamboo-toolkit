@@ -54,8 +54,8 @@ from src.biomass_yield import annual_yield
 from src.carbon_sequestration import annual_co2_sequestration, carbon_asset_value
 from src.economic_model import total_annual_revenue, roi_analysis, npv_analysis
 
-# 10000亩，品种亩产30吨干基/公顷/年，第4年（丰产期）
-result = annual_yield(area_mu=10000, variety_yield_t_ha=30, year=4)
+# 10000亩，品种亩产30吨干基/公顷/年，第3年（丰产期，第三年即满产）
+result = annual_yield(area_mu=10000, variety_yield_t_ha=30, year=3)
 print(f"年干基产量: {result['dry_tons']:.0f} 吨")   # 20000 吨
 print(f"年湿料产量: {result['wet_tons']:.0f} 吨")   # 28571 吨
 
@@ -130,7 +130,7 @@ streamlit run app/streamlit_app.py
 | `area_mu` | 10000 | 种植面积（亩） |
 | `variety_yield_t_ha` | 30 | 品种亩产（吨干基/公顷/年，丰产期） |
 | `moisture_pct` | 30 | 采收含水率（%） |
-| `peak_year` | 3 | 达产年数（第 peak_year+1 年起 100% 丰产） |
+| `peak_year` | 3 | 达产年数（第 3 年即达 100% 丰产） |
 | `carbon_content` | 0.45 | 干物质碳含量（IPCC 默认值） |
 | `soil_c_rate` | 2.0 | 土壤年固碳率（吨CO₂/公顷/年） |
 | `forestry_c_rate_t_mu` | 0.5 | 对比用林业年固碳率（吨CO₂/亩/年） |
@@ -143,7 +143,7 @@ streamlit run app/streamlit_app.py
 
 ## 📐 计算依据
 
-- **达产曲线**：文献经验值，第1~4年分别为丰产期的 30% / 60% / 80% / 100%；自定义达产年数按锚点线性插值
+- **达产曲线**：文献经验值，第1~3年分别为丰产期的 30% / 60% / 100%（第三年即满产）；自定义达产年数按锚点线性插值
 - **单位换算**：1 公顷 = 15 亩（精确值）
 - **碳含量**：IPCC 默认值 45%（木质纤维素类）；碳转CO₂系数 44/12 ≈ 3.67
 - **土壤固碳**：多年生深根草本文献报道 0.3~0.8 吨碳/公顷/年，折合约 1~3 吨CO₂/公顷/年，默认取 2.0（偏保守）

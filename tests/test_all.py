@@ -15,29 +15,34 @@ from src.seedling_planner import seedling_demand, planting_schedule, seedling_co
 
 def test_annual_yield_basic():
     """10000亩×30吨/公顷，丰产期干基=20000吨（10000/15×30）"""
-    r = annual_yield(10000, 30, year=4)
+    r = annual_yield(10000, 30, year=3)
     assert abs(r["dry_tons"] - 20000.0) < 1e-6
     assert r["wet_tons"] > r["dry_tons"]
 
 def test_annual_yield_year1():
     """第1年应为丰产期的30%（文献经验值）"""
     r1 = annual_yield(10000, 30, year=1)
-    r4 = annual_yield(10000, 30, year=4)
-    assert abs(r1["dry_tons"] / r4["dry_tons"] - 0.3) < 1e-9
+    r_peak = annual_yield(10000, 30, year=3)
+    assert abs(r1["dry_tons"] / r_peak["dry_tons"] - 0.3) < 1e-9
 
 def test_annual_yield_ramp_exact():
-    """默认peak_year=3时达产系数精确为 0.3/0.6/0.8/1.0"""
-    peak = annual_yield(10000, 30, year=4)["dry_tons"]
-    for year, ratio in [(1, 0.3), (2, 0.6), (3, 0.8), (4, 1.0)]:
+    """默认peak_year=3时达产系数精确为 0.3/0.6/1.0——第三年即满产"""
+    peak = annual_yield(10000, 30, year=3)["dry_tons"]
+    for year, ratio in [(1, 0.3), (2, 0.6), (3, 1.0), (4, 1.0)]:
         assert abs(annual_yield(10000, 30, year=year)["dry_tons"] / peak - ratio) < 1e-9
 
 def test_annual_yield_peak_year_generalized():
-    """peak_year=5时：第6年起100%丰产，且逐年递增"""
+    """peak_year=5时：第5年即100%丰产（锚点插值30/45/60/80/100）"""
     curve = yield_curve(10000, 30, peak_year=5, years=8)
-    assert curve[5]["dry_tons"] == pytest.approx(curve[6]["dry_tons"])  # 第6、7年相等
-    assert curve[7]["dry_tons"] == pytest.approx(20000.0)
-    for i in range(1, 6):
+    assert curve[4]["dry_tons"] == pytest.approx(20000.0)   # 第5年满产
+    assert curve[5]["dry_tons"] == pytest.approx(curve[6]["dry_tons"])  # 之后保持
+    assert curve[3]["dry_tons"] == pytest.approx(16000.0)   # 第4年=80%锚点插值
+    for i in range(1, 5):
         assert curve[i]["dry_tons"] > curve[i - 1]["dry_tons"]
+
+def test_annual_yield_peak_year_one():
+    """peak_year=1：种植当年即满产，不除零"""
+    assert annual_yield(10000, 30, year=1, peak_year=1)["dry_tons"] == pytest.approx(20000.0)
 
 def test_yield_curve_length():
     """25年应返回25条记录"""
@@ -45,12 +50,12 @@ def test_yield_curve_length():
     assert len(curve) == 25
 
 def test_yield_curve_monotonic():
-    """达产前产量递增，达产后稳定"""
+    """达产前产量递增；第3年即达丰产并保持稳定"""
     curve = yield_curve(10000, 30, peak_year=3, years=10)
-    for i in range(1, 4):
-        assert curve[i]["dry_tons"] >= curve[i-1]["dry_tons"]
-    for i in range(4, 10):
-        assert curve[i]["dry_tons"] == curve[3]["dry_tons"]
+    for i in range(1, 3):
+        assert curve[i]["dry_tons"] > curve[i-1]["dry_tons"]
+    for i in range(3, 10):
+        assert curve[i]["dry_tons"] == curve[2]["dry_tons"]  # 第3年起恒为丰产期
 
 def test_yield_validation():
     """非法参数应抛ValueError"""
