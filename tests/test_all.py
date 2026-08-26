@@ -186,3 +186,127 @@ def test_cli_smoke(tmp_path, capsys):
     content = out.read_text(encoding="utf-8")
     assert "超级芦竹全产业链项目测算报告" in content
     assert "IRR" in content  # 报告含NPV/IRR章节
+
+
+# === project_calculator ===
+
+from src.project_calculator import build_report, compute_all, fmt, tornado_npv
+
+
+def test_fmt():
+    """千分位格式化：整数与指定小数位"""
+    assert fmt(1234567) == "1,234,567"
+    assert fmt(0) == "0"
+    assert fmt(1234.567, 2) == "1,234.57"
+
+
+def test_compute_all_default_keys():
+    """默认参数应返回完整结果字典，收益=原料+碳资产"""
+    r = compute_all()
+    for key in ("y_peak", "curve", "co2", "cv", "cf", "soil_c",
+                "raw_rev", "carbon_rev", "total_rev", "pellet_rev", "plan"):
+        assert key in r, f"缺少键: {key}"
+    assert r["total_rev"] == r["raw_rev"] + r["carbon_rev"]
+    assert r["raw_rev"] > 0 and r["carbon_rev"] > 0
+
+
+def test_compute_all_curve_length():
+    """达产曲线长度应等于项目周期年数"""
+    r = compute_all(project_years=10)
+    assert len(r["curve"]) == 10
+    assert r["curve"][0]["year"] == 1
+    assert r["curve"][-1]["year"] == 10
+
+
+def test_compute_all_area_scaling():
+    """面积翻倍，丰产期干基产量应精确翻倍（线性模型）"""
+    small = compute_all(area_mu=10000)["y_peak"]["dry_tons"]
+    big = compute_all(area_mu=20000)["y_peak"]["dry_tons"]
+    assert big == pytest.approx(2 * small)
+
+
+def test_compute_all_config_fallback():
+    """soil_c_rate/discount_rate 传 None 时应回退配置文件值"""
+    r = compute_all()
+    assert r["soil_c_rate"] == 2.0
+    assert r["discount_rate"] == 0.08
+    # 显式传参优先于配置
+    r2 = compute_all(discount_rate=0.10)
+    assert r2["discount_rate"] == 0.10
+
+
+def test_build_report_sections():
+    """报告应包含全部章节标题与碳汇口径免责声明"""
+    text = build_report(compute_all())
+    for kw in ("超级芦竹全产业链项目测算报告", "产量测算", "碳汇价值", "经济效益",
+               "投资回报", "种苗规划", "NPV", "IRR", "碳汇口径说明"):
+        assert kw in text, f"报告缺少: {kw}"
+
+
+def test_build_report_custom_params():
+    """自定义投资额应体现在报告文本中"""
+    text = build_report(compute_all(area_mu=1000), investment=80_000_000, annual_cost=8_000_000)
+    assert "80,000,000" in text
+    assert "8,000,000" in text
+
+
+def test_tornado_npv_shape():
+    """龙卷风数据：六因素、按影响幅度降序、delta自洽"""
+    t = tornado_npv(compute_all(), 50_000_000, 5_000_000)
+    assert len(t["factors"]) == 6
+    impacts = [f["impact"] for f in t["factors"]]
+    assert impacts == sorted(impacts, reverse=True)
+    for f in t["factors"]:
+        assert f["low_delta"] == pytest.approx(f["low"] - t["base_npv"])
+        assert f["high_delta"] == pytest.approx(f["high"] - t["base_npv"])
+        assert f["impact"] == pytest.approx(max(abs(f["low_delta"]), abs(f["high_delta"])))
+
+
+def test_tornado_npv_direction():
+    """方向检验：亩产+20%→NPV升；总投资+20%→NPV降；折现率+20%→NPV降"""
+    t = tornado_npv(compute_all(), 50_000_000, 5_000_000)
+    by_name = {f["name"]: f for f in t["factors"]}
+    assert set(by_name) == {"亩产", "湿料单价", "碳价", "折现率", "总投资", "年运营成本"}
+    assert by_name["亩产"]["high_delta"] > 0
+    assert by_name["湿料单价"]["high_delta"] > 0
+    assert by_name["碳价"]["high_delta"] > 0
+    assert by_name["总投资"]["high_delta"] < 0
+    assert by_name["年运营成本"]["high_delta"] < 0
+    assert by_name["折现率"]["high_delta"] < 0
+
+
+def test_tornado_npv_base_matches_npv_analysis():
+    """基准NPV应与直接调用 npv_analysis 一致"""
+    r = compute_all()
+    t = tornado_npv(r, 50_000_000, 5_000_000)
+    direct = npv_analysis(50_000_000, r["total_rev"], 5_000_000, 25, 0.08)["npv"]
+    assert t["base_npv"] == pytest.approx(direct)
+
+
+# === utils ===
+
+from src.utils import hectare_to_mu, load_config, mu_to_hectare
+
+
+def test_mu_hectare_conversion():
+    """亩↔公顷互转：1公顷=15亩精确值"""
+    assert mu_to_hectare(15) == 1.0
+    assert hectare_to_mu(1) == 15
+    assert mu_to_hectare(100) == pytest.approx(100 / 15)
+    # 往返一致
+    assert hectare_to_mu(mu_to_hectare(12345)) == pytest.approx(12345)
+
+
+def test_load_config_sections():
+    """默认配置应含四大节及关键字段"""
+    cfg = load_config()
+    for sec in ("biomass", "carbon", "economics", "seedling"):
+        assert sec in cfg, f"配置缺少节: {sec}"
+    assert cfg["economics"]["discount_rate"] == 0.08
+    assert cfg["biomass"]["peak_year"] == 3
+
+
+def test_load_config_missing_file():
+    """配置文件不存在应抛OSError而非静默返回"""
+    with pytest.raises(OSError):
+        load_config("/nonexistent/params.yaml")
