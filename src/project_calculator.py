@@ -15,8 +15,14 @@ from src.carbon_sequestration import (
     comparison_with_forestry,
     soil_carbon_accumulation,
 )
-from src.economic_model import pellet_processing_revenue, raw_material_revenue, roi_analysis
+from src.economic_model import (
+    npv_analysis,
+    pellet_processing_revenue,
+    raw_material_revenue,
+    roi_analysis,
+)
 from src.seedling_planner import full_plan
+from src.utils import load_config
 
 
 def fmt(n, decimals=0):
@@ -34,6 +40,14 @@ def fmt(n, decimals=0):
     return f"{n:,.{decimals}f}"
 
 
+def _cfg_value(section, key, fallback):
+    """从 config/default_params.yaml 读取参数, 失败回退内置默认值"""
+    try:
+        return load_config().get(section, {}).get(key, fallback)
+    except Exception:
+        return fallback
+
+
 def compute_all(
     area_mu=10000,
     variety_yield=30,
@@ -45,6 +59,9 @@ def compute_all(
     seedling_density=800,
     seedling_price=3.0,
     survival_rate=0.9,
+    soil_c_rate=None,
+    forestry_c_rate=None,
+    discount_rate=None,
 ):
     """汇总计算全产业链核心指标（产量 / 碳汇 / 经济 / 种苗）
 
@@ -59,6 +76,9 @@ def compute_all(
         seedling_density: 定植密度（株/亩），默认 800
         seedling_price: 种苗单价（元/株），默认 3.0
         survival_rate: 首年成活率，默认 0.9
+        soil_c_rate: 年土壤固碳率（吨CO2/公顷/年），None 时读配置（缺省2.0）
+        forestry_c_rate: 对比用林业年固碳率（吨CO2/亩/年），None 时读配置（缺省0.5）
+        discount_rate: 折现率，None 时读配置（缺省0.08）
 
     Returns:
         dict: 统一结果字典，包含以下键：
@@ -70,14 +90,21 @@ def compute_all(
               pellet_rev(颗粒加工净收益)
             - 种苗: plan(种苗综合规划字典)
     """
+    if soil_c_rate is None:
+        soil_c_rate = _cfg_value("carbon", "soil_c_rate_t_ha", 2.0)
+    if forestry_c_rate is None:
+        forestry_c_rate = _cfg_value("carbon", "forestry_c_rate_t_mu", 0.5)
+    if discount_rate is None:
+        discount_rate = _cfg_value("economics", "discount_rate", 0.08)
+
     # ---- 产量：以 peak_year+1 年计算丰产期产量（此时达产系数=1.0）----
     y_peak = annual_yield(area_mu, variety_yield, moisture_pct, year=peak_year + 1)
 
     # ---- 碳汇测算 ----
     co2 = annual_co2_sequestration(area_mu, y_peak["dry_tons"])
     cv = carbon_asset_value(co2, co2_price)
-    cf = comparison_with_forestry(area_mu, y_peak["dry_tons"])
-    soil_c = soil_carbon_accumulation(area_mu, project_years)
+    cf = comparison_with_forestry(area_mu, y_peak["dry_tons"], forestry_c_rate)
+    soil_c = soil_carbon_accumulation(area_mu, project_years, soil_c_rate)
 
     # ---- 经济效益 ----
     raw_rev = raw_material_revenue(y_peak["wet_tons"], wet_price)
@@ -102,6 +129,9 @@ def compute_all(
         "wet_price": wet_price,
         "seedling_density": seedling_density,
         "seedling_price": seedling_price,
+        "soil_c_rate": soil_c_rate,
+        "forestry_c_rate": forestry_c_rate,
+        "discount_rate": discount_rate,
         # 产量
         "y_peak": y_peak,
         "curve": curve,
@@ -120,13 +150,14 @@ def compute_all(
     }
 
 
-def build_report(r, investment=None, annual_cost=None):
+def build_report(r, investment=None, annual_cost=None, discount_rate=None):
     """生成 Markdown 格式的综合项目报告（命令行与前端 Tab5 共用）
 
     Args:
         r: compute_all() 返回的结果字典
         investment: 总投资额（元），None 时使用默认 5000 万元
         annual_cost: 年运营成本（元），None 时使用默认 500 万元
+        discount_rate: 折现率，None 时使用 r['discount_rate']
 
     Returns:
         str: Markdown 格式的完整报告文本（可直接复制或写入文件）
@@ -135,10 +166,16 @@ def build_report(r, investment=None, annual_cost=None):
         investment = 50_000_000
     if annual_cost is None:
         annual_cost = 5_000_000
+    if discount_rate is None:
+        discount_rate = r.get("discount_rate", 0.08)
 
     roi = roi_analysis(investment, r["total_rev"], annual_cost, r["project_years"])
+    npv = npv_analysis(
+        investment, r["total_rev"], annual_cost, r["project_years"], discount_rate
+    )
     y_peak = r["y_peak"]
     plan = r["plan"]
+    irr_pct = f"{npv['irr']:.1%}" if npv["irr"] == npv["irr"] else "无解"
 
     report = f"""# 超级芦竹全产业链项目测算报告
 
@@ -154,10 +191,10 @@ def build_report(r, investment=None, annual_cost=None):
 - 年湿料产量：{fmt(y_peak['wet_tons'])} 吨
 
 ## 碳汇价值
-- 年固碳量：{fmt(r['co2'])} 吨CO₂
+- 年固碳量（毛固碳通量）：{fmt(r['co2'])} 吨CO₂
 - 碳资产价值：{fmt(r['cv'])} 元/年（碳价 {r['co2_price']} 元/吨）
 - {r['project_years']} 年土壤固碳：{fmt(r['soil_c'])} 吨CO₂
-- vs 传统林业碳汇：{r['cf']['ratio']:.1f} 倍
+- vs 传统林业碳汇：{r['cf']['ratio']:.1f} 倍（对比基准 {r.get('forestry_c_rate', 0.5)} 吨CO₂/亩/年）
 
 ## 经济效益
 - 原料销售收入：{fmt(r['raw_rev'])} 元/年（湿料 {r['wet_price']} 元/吨）
@@ -169,8 +206,10 @@ def build_report(r, investment=None, annual_cost=None):
 - 总投资额：{fmt(investment)} 元
 - 年运营成本：{fmt(annual_cost)} 元
 - 年净收益：{fmt(roi['annual_net'])} 元
-- 回本周期：{roi['payback_years']:.1f} 年
-- {r['project_years']} 年累计净利：{fmt(roi['net_profit_25y'])} 元
+- 静态回本周期：{roi['payback_years']:.1f} 年
+- 净现值 NPV（折现率 {discount_rate:.0%}）：{fmt(npv['npv'])} 元
+- 内部收益率 IRR：{irr_pct}
+- {r['project_years']} 年累计净利（静态）：{fmt(roi['net_profit_total'])} 元
 
 ## 种苗规划
 - 种苗需求：{fmt(plan['total_demand'])} 株（密度 {r['seedling_density']} 株/亩）
@@ -180,5 +219,9 @@ def build_report(r, investment=None, annual_cost=None):
 ---
 *数据来源：IPCC指南、学术期刊、碳市场公开数据*
 *计算工具：Super Bamboo Toolkit*
+
+⚠️ **碳汇口径说明**：地上生物量固碳为年度循环碳通量，原料能源化利用后将重新排放；
+长期净碳汇以地下根系与土壤固碳为主。碳资产可交易性以官方方法学（如CCER）审定为准。
+本报告为参数化估算，不构成投资建议。
 """
     return report

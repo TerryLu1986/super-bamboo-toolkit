@@ -14,3 +14,6 @@ build/
 *.swo
 .pytest_cache/
 .mypy_cache/
+
+# 内部计划文件，勿提交
+PLAN.md

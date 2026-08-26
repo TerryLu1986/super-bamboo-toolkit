@@ -114,6 +114,20 @@ def build_parser():
         default=d["seedling_price"],
         help="种苗单价（元/株）",
     )
+    parser.add_argument(
+        "--survival-rate",
+        dest="survival_rate",
+        type=float,
+        default=0.9,
+        help="首年成活率（0-1）",
+    )
+    parser.add_argument(
+        "--discount-rate",
+        dest="discount_rate",
+        type=float,
+        default=0.08,
+        help="折现率（用于NPV/IRR，如0.08表示8%%）",
+    )
     parser.add_argument("--investment", type=float, default=5000, help="总投资额（万元）")
     parser.add_argument(
         "--annual-cost", dest="annual_cost", type=float, default=500, help="年运营成本（万元）"
@@ -156,6 +170,8 @@ def main(argv=None):
             wet_price=args.wet_price,
             seedling_density=args.seedling_density,
             seedling_price=args.seedling_price,
+            survival_rate=args.survival_rate,
+            discount_rate=args.discount_rate,
         )
         # 投资额与年成本：万元 -> 元
         report = build_report(

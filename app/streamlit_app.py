@@ -21,7 +21,7 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 
-from src.economic_model import raw_material_revenue, roi_analysis
+from src.economic_model import npv_analysis, raw_material_revenue, roi_analysis
 from src.project_calculator import build_report, compute_all, fmt
 
 # ==================== 绿色系主题色板 ====================
@@ -119,6 +119,13 @@ def render_carbon_tab(r):
     """
     st.header("🌍 碳汇价值测算")
 
+    st.info(
+        "⚠️ **碳汇口径说明**：地上生物量固碳为**年度循环碳通量**——原料收获能源化利用后"
+        "其中的碳会重新排放；长期净碳汇以地下根系与土壤固碳为主。"
+        "碳资产可交易性以官方方法学（如CCER）审定为准。",
+        icon="ℹ️",
+    )
+
     # 关键数据卡片
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("年固碳量", f"{fmt(r['co2'])} 吨CO₂")
@@ -194,10 +201,16 @@ def render_economic_tab(r):
     annual_cost = c2.number_input("年运营成本（万元）", value=500, step=50) * 10000
 
     roi = roi_analysis(investment, r["total_rev"], annual_cost, r["project_years"])
-    m1, m2, m3 = st.columns(3)
+    npv = npv_analysis(
+        investment, r["total_rev"], annual_cost, r["project_years"], r["discount_rate"]
+    )
+    irr_txt = f"{npv['irr']:.1%}" if npv["irr"] == npv["irr"] else "无解"
+    m1, m2, m3, m4, m5 = st.columns(5)
     m1.metric("年净收益", f"{fmt(roi['annual_net'])} 元")
-    m2.metric("回本周期", f"{roi['payback_years']:.1f} 年")
-    m3.metric(f"{r['project_years']}年累计净利", f"{fmt(roi['net_profit_25y'])} 元")
+    m2.metric("静态回本周期", f"{roi['payback_years']:.1f} 年")
+    m3.metric(f"NPV（折现率 {r['discount_rate']:.0%}）", f"{fmt(npv['npv'])} 元")
+    m4.metric("内部收益率 IRR", irr_txt)
+    m5.metric(f"{r['project_years']}年累计净利（静态）", f"{fmt(roi['net_profit_total'])} 元")
 
     # 敏感性分析（Plotly 柱状图，替代原 st.table）
     st.subheader("🔍 敏感性分析：湿料单价 ±20% 对综合年收益的影响")
@@ -322,6 +335,8 @@ def main():
     wet_price = st.sidebar.slider("湿料单价（元/吨）", 100, 500, 300)
     seedling_density = st.sidebar.slider("定植密度（株/亩）", 400, 1200, 800)
     seedling_price = st.sidebar.slider("种苗单价（元/株）", 1.0, 5.0, 3.0, 0.1)
+    survival_rate = st.sidebar.slider("首年成活率", 0.5, 1.0, 0.9, 0.05)
+    discount_rate = st.sidebar.slider("折现率（NPV/IRR用）", 0.02, 0.15, 0.08, 0.01)
 
     st.sidebar.divider()
     st.sidebar.markdown("📖 数据来源：IPCC指南、学术期刊、碳市场公开数据")
@@ -338,6 +353,8 @@ def main():
         wet_price=wet_price,
         seedling_density=seedling_density,
         seedling_price=seedling_price,
+        survival_rate=survival_rate,
+        discount_rate=discount_rate,
     )
 
     # ---------- 项目概览（Tab 上方的 4 张大数字卡片）----------

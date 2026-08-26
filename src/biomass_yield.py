@@ -4,37 +4,72 @@
 """
 from src.utils import mu_to_hectare
 
-# 达产系数(文献经验值): 第1年30%, 第2年60%, 第3年80%, 第4年起100%
-_RAMP_RATIOS = {1: 0.3, 2: 0.6, 3: 0.8}
+# 达产曲线锚点(文献经验值, 以"达产进度 p=(年份-1)/达产年数"为横轴):
+#   p=0(第1年)→30%, p=1/3→60%, p=2/3→80%, p=1(达产翌年)→100%
+# 默认 peak_year=3 时精确复现 30% / 60% / 80% / 100% 的文献经验曲线;
+# 其他达产年数按锚点线性插值泛化。
+_RAMP_ANCHORS = ((0.0, 0.3), (1.0 / 3, 0.6), (2.0 / 3, 0.8), (1.0, 1.0))
+
+
+def _ramp_factor(year, peak_year):
+    """达产系数: 按达产进度 p=(year-1)/peak_year 在锚点间线性插值
+
+    Args:
+        year: 种植第几年(>=1)
+        peak_year: 达产年数(>=1), 第 peak_year+1 年起系数为 1.0
+
+    Returns:
+        float: (0, 1] 之间的达产系数
+    """
+    p = (year - 1) / peak_year
+    if p >= 1.0:
+        return 1.0
+    for (p0, v0), (p1, v1) in zip(_RAMP_ANCHORS, _RAMP_ANCHORS[1:]):
+        if p <= p1:
+            return v0 + (v1 - v0) * (p - p0) / (p1 - p0)
+    return 1.0
 
 
 def annual_yield(area_mu, variety_yield_t_ha=30, moisture_pct=30, year=1, peak_year=3):
     """单年生物量产量估算(吨)
 
-    亩转公顷: area_mu * 0.0667
+    亩转公顷: area_mu / 15 (1公顷=15亩)
     干基产量 = 面积(公顷) × 品种亩产(吨干基/公顷/年) × 达产系数
     湿料产量 = 干基产量 / (1 - 含水率/100)
+
+    达产系数随 peak_year 泛化: 默认 peak_year=3 时为文献经验值
+    (第1年30%, 第2年60%, 第3年80%, 第4年起100%); 其他达产年数按锚点插值。
 
     Args:
         area_mu: 种植面积(亩)
         variety_yield_t_ha: 丰产期品种亩产(吨干基/公顷/年), 默认30
         moisture_pct: 采收含水率(%), 默认30
-        year: 种植第几年, 用于达产系数(第1年30%, 第2年60%, 第3年80%, 第4年起100%), 默认1
+        year: 种植第几年(>=1), 用于达产系数, 默认1
+        peak_year: 达产年数(>=1), 第 peak_year+1 年起达产系数=1.0, 默认3
 
     Returns:
         dict: {'dry_tons': 干基产量(吨), 'wet_tons': 湿料产量(吨), 'area_ha': 面积(公顷)}
 
+    Raises:
+        ValueError: 参数越界(面积/亩产为负, 含水率不在[0,100), year/peak_year<1)
+
     Examples:
         >>> annual_yield(10000, 30, year=4)
-        {'dry_tons': 20010.0, 'wet_tons': 28585.714285714286, 'area_ha': 667.0}
+        {'dry_tons': 20000.0, 'wet_tons': 28571.428571428572, 'area_ha': 666.6666666666666}
     """
     if not (0 <= moisture_pct < 100):
         raise ValueError(f"moisture_pct 需在 [0, 100) 区间, 当前为 {moisture_pct}")
     if area_mu < 0 or variety_yield_t_ha < 0:
         raise ValueError("面积与品种亩产不能为负")
+    year = int(year)
+    peak_year = int(peak_year)
+    if year < 1:
+        raise ValueError(f"year 需 >= 1, 当前为 {year}")
+    if peak_year < 1:
+        raise ValueError(f"peak_year 需 >= 1, 当前为 {peak_year}")
 
     area_ha = mu_to_hectare(area_mu)
-    factor = _RAMP_RATIOS.get(max(int(year), 1), 1.0)  # year>=4 时达产系数=1.0
+    factor = _ramp_factor(year, peak_year)
     dry_tons = area_ha * variety_yield_t_ha * factor
     wet_tons = dry_tons / (1.0 - moisture_pct / 100.0)
     return {"dry_tons": dry_tons, "wet_tons": wet_tons, "area_ha": area_ha}
@@ -43,25 +78,29 @@ def annual_yield(area_mu, variety_yield_t_ha=30, moisture_pct=30, year=1, peak_y
 def yield_curve(area_mu, variety_yield_t_ha=30, moisture_pct=30, peak_year=3, years=25):
     """逐年达产曲线(吨)
 
-    达产前(第1~peak_year年)按比例递增, 达产系数 = year / peak_year;
-    达产后(第peak_year年起)保持100%。
+    每年产量由 annual_yield(year=y, peak_year=peak_year) 计算:
+    达产进度 p=(y-1)/peak_year 在锚点(30%/60%/80%/100%)间线性插值,
+    第 peak_year+1 年起保持100%丰产。
 
     Args:
         area_mu: 种植面积(亩)
         variety_yield_t_ha: 丰产期品种亩产(吨干基/公顷/年), 默认30
         moisture_pct: 采收含水率(%), 默认30
-        peak_year: 达产年数, 默认3
-        years: 项目周期(年), 默认25
+        peak_year: 达产年数(>=1), 默认3
+        years: 项目周期(年, >=1), 默认25
 
     Returns:
         list of dict: [{'year': int, 'dry_tons': float, 'wet_tons': float}, ...]
 
+    Raises:
+        ValueError: 参数越界(同 annual_yield, 另含 years<1)
+
     Examples:
         >>> curve = yield_curve(10000, 30)
         >>> curve[0]
-        {'year': 1, 'dry_tons': 6670.0, 'wet_tons': 9528.57142857143}
+        {'year': 1, 'dry_tons': 6000.0, 'wet_tons': 8571.428571428572}
         >>> curve[-1]['dry_tons']
-        20010.0
+        20000.0
     """
     if peak_year < 1:
         raise ValueError(f"peak_year 至少为1, 当前为 {peak_year}")
@@ -72,11 +111,8 @@ def yield_curve(area_mu, variety_yield_t_ha=30, moisture_pct=30, peak_year=3, ye
     if area_mu < 0 or variety_yield_t_ha < 0:
         raise ValueError("面积与品种亩产不能为负")
 
-    area_ha = mu_to_hectare(area_mu)
     curve = []
-    for y in range(1, years + 1):
+    for y in range(1, int(years) + 1):
         r = annual_yield(area_mu, variety_yield_t_ha, moisture_pct, year=y, peak_year=peak_year)
-        dry = r["dry_tons"]
-        wet = r["wet_tons"]
-        curve.append({"year": y, "dry_tons": dry, "wet_tons": wet})
+        curve.append({"year": y, "dry_tons": r["dry_tons"], "wet_tons": r["wet_tons"]})
     return curve

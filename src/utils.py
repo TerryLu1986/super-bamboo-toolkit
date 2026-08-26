@@ -22,7 +22,7 @@ def load_config(config_path=None):
 
 
 def mu_to_hectare(area_mu):
-    """亩转公顷：1 亩 = 0.0667 公顷
+    """亩转公顷：1 公顷 = 15 亩（1 亩 = 1/15 ≈ 0.06667 公顷）
 
     Args:
         area_mu: 面积（亩）
