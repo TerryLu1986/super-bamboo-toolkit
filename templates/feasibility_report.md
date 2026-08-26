@@ -134,4 +134,4 @@
 
 *报告生成日期：{DATE}*
 *数据来源：公开学术文献、IPCC指南、国家能源局/林草局公开报告*
-*计算工具：Super Bamboo Toolkit (https://github.com/YOUR_USERNAME/super-bamboo-toolkit)*
+*计算工具：Super Bamboo Toolkit (https://github.com/TerryLu1986/super-bamboo-toolkit)*
