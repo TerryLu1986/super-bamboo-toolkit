@@ -355,3 +355,25 @@ def test_load_config_missing_file():
     """配置文件不存在应抛OSError而非静默返回"""
     with pytest.raises(OSError):
         load_config("/nonexistent/params.yaml")
+
+
+class TestStreamlitAppSmoke:
+    """前端冒烟测试: 用 AppTest 真实渲染整个应用, 防止单元测试全过
+    但界面因字段/接口不匹配而崩溃(2026-08 KeyError: net_demand 事故)"""
+
+    @pytest.fixture(autouse=True)
+    def _run_app(self):
+        from streamlit.testing.v1 import AppTest
+        at = AppTest.from_file(
+            str(Path(__file__).resolve().parent.parent / "app" / "streamlit_app.py"),
+            default_timeout=120,
+        )
+        at.run()
+        self.at = at
+
+    def test_no_exception(self):
+        assert not self.at.exception, f"应用渲染异常: {self.at.exception}"
+
+    def test_metrics_rendered(self):
+        # 主页核心指标卡片应有输出(标题/正文非空)
+        assert len(self.at.markdown) > 0

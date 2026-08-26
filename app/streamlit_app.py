@@ -125,7 +125,7 @@ def render_yield_tab(r):
         )
     )
     apply_green_theme(fig, "丰产期达产曲线（逐年产量）", "种植年份", "产量（吨）", height=420)
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
 
 def render_carbon_tab(r):
@@ -174,7 +174,7 @@ def render_carbon_tab(r):
     )
     fig2.update_layout(barmode="group")
     apply_green_theme(fig2, "芦竹与传统林业年固碳量对比", "", "", height=400)
-    st.plotly_chart(fig2, use_container_width=True)
+    st.plotly_chart(fig2, width="stretch")
 
     # 碳汇构成环形图（生物量固碳 vs 年均土壤固碳）
     st.subheader("🥧 碳汇构成分析")
@@ -190,7 +190,7 @@ def render_carbon_tab(r):
         )
     )
     apply_green_theme(fig3, "年固碳量构成（吨CO₂/年）", "", "", height=380, hovermode=False)
-    st.plotly_chart(fig3, use_container_width=True)
+    st.plotly_chart(fig3, width="stretch")
 
 
 def render_economic_tab(r):
@@ -273,7 +273,7 @@ def render_economic_tab(r):
         annotation_position="top left",
     )
     apply_green_theme(fig4, "湿料单价敏感性分析（综合年收益）", "价格变动幅度", "综合年收益（万元）", height=420)
-    st.plotly_chart(fig4, use_container_width=True)
+    st.plotly_chart(fig4, width="stretch")
 
     # 多因素敏感性（龙卷风图）：六个关键参数 ±20% 扰动对 NPV 的影响
     st.subheader("🌪️ 多因素敏感性（龙卷风图）：关键参数 ±20% 对 NPV 的影响")
@@ -304,7 +304,7 @@ def render_economic_tab(r):
         f"NPV 敏感性排序（基准 NPV {tor['base_npv'] / 10000:,.0f} 万元）",
         "ΔNPV（万元）", "扰动因素", height=430,
     )
-    st.plotly_chart(fig5, use_container_width=True)
+    st.plotly_chart(fig5, width="stretch")
     st.caption(
         "每因素两根柱分别为该参数上浮/下浮 20% 时 NPV 相对基准的变化量，"
         "按影响幅度从大到小排序——亩产与售价类因素左右项目成败，投资与折现率次之。"
@@ -348,7 +348,7 @@ def render_seedling_tab(r):
     st.subheader("📋 分批种植计划")
     df_batch = pd.DataFrame(r["plan"]["batches"])
     df_batch.columns = ["批次", "面积（亩）", "种苗（株）", "起始天"]
-    st.dataframe(df_batch, use_container_width=True, hide_index=True)
+    st.dataframe(df_batch, width="stretch", hide_index=True)
     st.caption("各批次种苗为该批面积的采购量（已含按成活率预留的补栽余量）。")
 
     # 各批次种苗需求柱状图（绿色系）
@@ -369,7 +369,7 @@ def render_seedling_tab(r):
         )
     )
     apply_green_theme(fig5, "各批次种苗需求", "批次", "种苗需求（株）", height=380)
-    st.plotly_chart(fig5, use_container_width=True)
+    st.plotly_chart(fig5, width="stretch")
 
 
 def render_report_tab(r, investment, annual_cost):
