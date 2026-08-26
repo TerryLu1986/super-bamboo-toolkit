@@ -1,6 +1,5 @@
 # 🎋 Super Bamboo Toolkit
 
-[![CI](https://github.com/TerryLu1986/super-bamboo-toolkit/actions/workflows/ci.yml/badge.svg)](https://github.com/TerryLu1986/super-bamboo-toolkit/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 **开源超级芦竹全产业链计算工具箱**
