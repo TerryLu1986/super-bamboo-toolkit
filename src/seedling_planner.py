@@ -28,10 +28,13 @@ def _param(key, override=None):
     return cfg.get(key, _BUILTIN_DEFAULTS[key])
 
 
-def seedling_demand(area_mu, density_per_mu=None, survival_rate=None):
-    """种苗总需求量(株)
+def seedling_demand_detail(area_mu, density_per_mu=None, survival_rate=None):
+    """种苗需求明细：净定植需求 / 补栽余量 / 采购总量
 
-    总需求量 = 面积(亩) × 定植密度(株/亩) / 成活率, 向上取整预留补栽余量。
+    - 净定植需求 = 面积(亩) × 定植密度(株/亩)：按设计密度实际栽植的株数
+    - 采购总量 = 净定植需求 / 首年成活率, 向上取整：含补栽余量,
+      保证按成活率折损后存苗数仍达到设计密度
+    - 补栽余量 = 采购总量 - 净定植需求
 
     Args:
         area_mu: 种植面积(亩, >=0)
@@ -39,10 +42,19 @@ def seedling_demand(area_mu, density_per_mu=None, survival_rate=None):
         survival_rate: 首年成活率(0, 1], 默认取配置(内置0.9)
 
     Returns:
-        int: 种苗总需求量(株)
+        dict: {'net_demand': 净定植需求(株), 'replant_reserve': 补栽余量(株),
+               'total_demand': 采购总量(株), 'density_per_mu': 定植密度,
+               'survival_rate': 成活率}
 
     Raises:
         ValueError: 面积/密度为负或零、成活率不在(0,1]区间
+
+    Example:
+        >>> d = seedling_demand_detail(10000)
+        >>> d['net_demand']
+        8000000
+        >>> d['total_demand']
+        8888889
     """
     density_per_mu = _param("density_per_mu", density_per_mu)
     survival_rate = _param("survival_rate", survival_rate)
@@ -52,8 +64,35 @@ def seedling_demand(area_mu, density_per_mu=None, survival_rate=None):
         raise ValueError(f"定植密度需 > 0, 当前为 {density_per_mu}")
     if not (0 < survival_rate <= 1):
         raise ValueError(f"成活率需在 (0, 1] 区间, 当前为 {survival_rate}")
-    demand = area_mu * density_per_mu / survival_rate
-    return math.ceil(demand)
+    net = math.ceil(area_mu * density_per_mu)
+    total = math.ceil(area_mu * density_per_mu / survival_rate)
+    return {
+        "net_demand": net,
+        "replant_reserve": total - net,
+        "total_demand": total,
+        "density_per_mu": density_per_mu,
+        "survival_rate": survival_rate,
+    }
+
+
+def seedling_demand(area_mu, density_per_mu=None, survival_rate=None):
+    """种苗采购总量(株)——含成活率补栽余量
+
+    总需求量 = 面积(亩) × 定植密度(株/亩) / 成活率, 向上取整预留补栽余量;
+    净定植需求与补栽余量的分项明细见 seedling_demand_detail()。
+
+    Args:
+        area_mu: 种植面积(亩, >=0)
+        density_per_mu: 定植密度(株/亩), 默认取配置(内置800)
+        survival_rate: 首年成活率(0, 1], 默认取配置(内置0.9)
+
+    Returns:
+        int: 种苗采购总量(株)
+
+    Raises:
+        ValueError: 面积/密度为负或零、成活率不在(0,1]区间
+    """
+    return seedling_demand_detail(area_mu, density_per_mu, survival_rate)["total_demand"]
 
 
 def planting_schedule(area_mu, batch_size_mu=None, batch_interval_days=None):
@@ -138,14 +177,22 @@ def full_plan(
         batch_size_mu: 每批种植面积(亩), 默认取配置(内置5000)
 
     Returns:
-        dict: {'total_demand': int, 'total_cost': float, 'batches': list, 'total_batches': int}
+        dict: {'net_demand': 净定植需求(株), 'replant_reserve': 补栽余量(株),
+               'total_demand': 采购总量(株), 'total_cost': float,
+               'batches': list, 'total_batches': int,
+               'density_per_mu': int, 'survival_rate': float}
     """
-    total_demand = seedling_demand(area_mu, density_per_mu, survival_rate)
+    detail = seedling_demand_detail(area_mu, density_per_mu, survival_rate)
+    total_demand = detail["total_demand"]
     total_cost = seedling_cost(total_demand, price_per_seedling)
     batches = planting_schedule(area_mu, batch_size_mu)
     return {
+        "net_demand": detail["net_demand"],
+        "replant_reserve": detail["replant_reserve"],
         "total_demand": total_demand,
         "total_cost": total_cost,
         "batches": batches,
         "total_batches": len(batches),
+        "density_per_mu": detail["density_per_mu"],
+        "survival_rate": detail["survival_rate"],
     }

@@ -8,7 +8,7 @@ import pytest
 from src.biomass_yield import annual_yield, yield_curve
 from src.carbon_sequestration import annual_co2_sequestration, carbon_asset_value, comparison_with_forestry, soil_carbon_accumulation
 from src.economic_model import npv_analysis, raw_material_revenue, pellet_processing_revenue, roi_analysis, sensitivity_analysis, total_annual_revenue
-from src.seedling_planner import seedling_demand, planting_schedule, seedling_cost, full_plan
+from src.seedling_planner import seedling_demand, seedling_demand_detail, planting_schedule, seedling_cost, full_plan
 
 
 # === biomass_yield ===
@@ -69,6 +69,17 @@ def test_yield_validation():
         annual_yield(10000, 30, peak_year=0)        # 达产年数<1
     with pytest.raises(ValueError):
         yield_curve(10000, 30, years=0)             # 周期<1
+
+
+def test_seedling_demand_detail():
+    """净定植+补栽余量=采购总量；成活率1.0时余量为0"""
+    d = seedling_demand_detail(10000, 800, 0.9)
+    assert d["net_demand"] == 800_0000
+    assert d["total_demand"] == 888_8889
+    assert d["replant_reserve"] == d["total_demand"] - d["net_demand"]
+    d2 = seedling_demand_detail(10000, 800, 1.0)
+    assert d2["replant_reserve"] == 0
+    assert d2["total_demand"] == d2["net_demand"] == 8_000_000
 
 
 # === carbon_sequestration ===

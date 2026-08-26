@@ -129,6 +129,7 @@ def compute_all(
         "wet_price": wet_price,
         "seedling_density": seedling_density,
         "seedling_price": seedling_price,
+        "survival_rate": survival_rate,
         "soil_c_rate": soil_c_rate,
         "forestry_c_rate": forestry_c_rate,
         "discount_rate": discount_rate,
@@ -212,8 +213,10 @@ def build_report(r, investment=None, annual_cost=None, discount_rate=None):
 - {r['project_years']} 年累计净利（静态）：{fmt(roi['net_profit_total'])} 元
 
 ## 种苗规划
-- 种苗需求：{fmt(plan['total_demand'])} 株（密度 {r['seedling_density']} 株/亩）
-- 种苗成本：{fmt(plan['total_cost'])} 元
+- 净定植需求：{fmt(plan['net_demand'])} 株（密度 {r['seedling_density']} 株/亩 × {fmt(r['area_mu'])} 亩）
+- 补栽余量：{fmt(plan['replant_reserve'])} 株（按首年成活率 {r['survival_rate']:.0%} 预留，保证成活后仍达设计密度）
+- 种苗采购总量：{fmt(plan['total_demand'])} 株
+- 种苗成本：{fmt(plan['total_cost'])} 元（单价 {r['seedling_price']} 元/株）
 - 种植批次：{plan['total_batches']} 批
 
 ---

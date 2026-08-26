@@ -37,6 +37,9 @@ GREEN_THEME = {
 def apply_green_theme(fig, title, x_title="", y_title="", height=420, hovermode="x unified"):
     """为 Plotly 图表统一套用绿色系主题（中文标题 + 布局 + hover 模式）
 
+    字号统一规范：图表标题 14.5 / 轴标题 12.5 / 刻度 11.5 / 图例 11.5 / hover 12，
+    避免各图使用 Plotly 默认字号导致的忽大忽小。
+
     Args:
         fig: plotly.graph_objects.Figure 图表对象（原地修改）
         title: 图表标题（中文）
@@ -49,13 +52,27 @@ def apply_green_theme(fig, title, x_title="", y_title="", height=420, hovermode=
         plotly.graph_objects.Figure: 应用主题后的图表对象
     """
     fig.update_layout(
-        title=dict(text=title, x=0.02, font=dict(size=18, color=GREEN_THEME["dark"])),
+        title=dict(text=title, x=0.01, font=dict(size=14.5, color=GREEN_THEME["dark"])),
         xaxis_title=x_title,
         yaxis_title=y_title,
+        xaxis=dict(
+            title_font=dict(size=12.5, color="#424242"),
+            tickfont=dict(size=11.5, color="#616161"),
+            automargin=True,
+        ),
+        yaxis=dict(
+            title_font=dict(size=12.5, color="#424242"),
+            tickfont=dict(size=11.5, color="#616161"),
+            automargin=True,
+        ),
         hovermode=hovermode,
         height=height,
-        margin=dict(l=60, r=30, t=60, b=50),
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
+        margin=dict(l=10, r=10, t=46, b=14),
+        legend=dict(
+            orientation="h", yanchor="bottom", y=1.04, xanchor="left", x=0,
+            font=dict(size=11.5, color="#424242"),
+        ),
+        hoverlabel=dict(font_size=12),
         plot_bgcolor="rgba(0,0,0,0)",   # 透明绘图区
         paper_bgcolor="rgba(0,0,0,0)",  # 透明画布
         font=dict(family="Microsoft YaHei, PingFang SC, Noto Sans CJK SC, sans-serif"),
@@ -238,6 +255,7 @@ def render_economic_tab(r):
             marker_color=bar_colors,
             text=[f"{s['rev'] / 10000:,.0f} 万元" for s in sens],
             textposition="outside",
+            textfont=dict(size=11),
             customdata=[f"{s['price']:.0f}" for s in sens],
             hovertemplate=(
                 "价格变动：%{x}<br>"
@@ -270,12 +288,14 @@ def render_economic_tab(r):
         y=names, x=highs, orientation="h", name="参数 +20%",
         marker_color=GREEN_THEME["primary"],
         text=[f"{v:+,.0f}" for v in highs], textposition="outside",
+        textfont=dict(size=11),
         hovertemplate="%{y} +20%%：NPV 变动 %{x:,.0f} 万元<extra></extra>",
     ))
     fig5.add_trace(go.Bar(
         y=names, x=lows, orientation="h", name="参数 −20%",
         marker_color=GREEN_THEME["light"],
         text=[f"{v:+,.0f}" for v in lows], textposition="outside",
+        textfont=dict(size=11),
         hovertemplate="%{y} −20%%：NPV 变动 %{x:,.0f} 万元<extra></extra>",
     ))
     fig5.add_vline(x=0, line_dash="dot", line_color=GREEN_THEME["dark"])
@@ -301,17 +321,35 @@ def render_seedling_tab(r):
     """
     st.header("🌿 种苗需求规划")
 
-    # 关键数据卡片
-    col1, col2, col3 = st.columns(3)
-    col1.metric("种苗总需求", f"{fmt(r['plan']['total_demand'])} 株")
-    col2.metric("种苗总成本", f"{fmt(r['plan']['total_cost'])} 元")
-    col3.metric("种植批次数", f"{r['plan']['total_batches']} 批")
+    # 关键数据卡片：净定植 / 补栽余量 / 采购总量 / 成本
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric(
+        "净定植需求",
+        f"{fmt(r['plan']['net_demand'])} 株",
+        help=f"密度 {r['seedling_density']} 株/亩 × {fmt(r['area_mu'])} 亩，按设计密度实际栽植量",
+    )
+    col2.metric(
+        "补栽余量",
+        f"+{fmt(r['plan']['replant_reserve'])} 株",
+        help=f"按首年成活率 {r['survival_rate']:.0%} 预留，保证成活后仍达设计密度",
+    )
+    col3.metric(
+        "采购总量",
+        f"{fmt(r['plan']['total_demand'])} 株",
+        help="净定植需求 ÷ 成活率，向上取整（含补栽余量）",
+    )
+    col4.metric("种苗成本", f"{fmt(r['plan']['total_cost'])} 元")
+    st.caption(
+        f"采购总量 = 净定植需求 ÷ 首年成活率（{r['survival_rate']:.0%}）："
+        "成活折损后存苗数恰好回到设计密度，多出部分即补栽用苗。"
+    )
 
     # 分批种植计划表
     st.subheader("📋 分批种植计划")
     df_batch = pd.DataFrame(r["plan"]["batches"])
     df_batch.columns = ["批次", "面积（亩）", "种苗（株）", "起始天"]
     st.dataframe(df_batch, use_container_width=True, hide_index=True)
+    st.caption("各批次种苗为该批面积的采购量（已含按成活率预留的补栽余量）。")
 
     # 各批次种苗需求柱状图（绿色系）
     fig5 = go.Figure(
@@ -321,6 +359,7 @@ def render_seedling_tab(r):
             marker_color=GREEN_THEME["secondary"],
             text=[f"{v:,.0f}" for v in df_batch["种苗（株）"]],
             textposition="outside",
+            textfont=dict(size=11),
             customdata=df_batch["面积（亩）"],
             hovertemplate=(
                 "第 %{x} 批<br>"
@@ -353,23 +392,51 @@ def render_report_tab(r, investment, annual_cost):
 def main():
     """应用主入口：搭建侧边栏参数、项目概览与五个功能 Tab"""
     st.set_page_config(page_title="超级芦竹全产业链计算器", page_icon="🎋", layout="wide")
+
+    # ---------- 全局排版微调：收敛默认样式里忽大忽小的元素 ----------
+    st.markdown(
+        """
+        <style>
+            /* 页面主标题：收敛字号与下间距 */
+            h1 { font-size: 1.6rem !important; margin-bottom: 0.2rem; }
+            /* Tab 内大标题/小标题：层级更分明 */
+            h2 { font-size: 1.22rem !important; margin: 0.4rem 0 0.5rem; }
+            h3 { font-size: 1.02rem !important; margin: 0.9rem 0 0.4rem; color: #1B5E20; }
+            /* 大数字卡片：数值默认过大，与正文协调 */
+            [data-testid="stMetricValue"] { font-size: 1.25rem; }
+            [data-testid="stMetricLabel"] { font-size: 0.85rem; }
+            /* 数据表格与 Tab 标签字号 */
+            [data-testid="stDataFrame"] { font-size: 0.85rem; }
+            .stTabs [data-baseweb="tab"] { font-size: 0.95rem; }
+            /* 图表容器上下留白收紧 */
+            [data-testid="stPlotlyChart"] { margin-top: 0.2rem; margin-bottom: 0.4rem; }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
     st.title("🎋 超级芦竹全产业链计算器")
     st.caption("开源能源草全产业链计算工具 | 参数全部可配置 | 数据来源：公开学术文献")
 
-    # ---------- 侧边栏：项目参数 ----------
+    # ---------- 侧边栏：项目参数（按类分组） ----------
     st.sidebar.header("⚙️ 项目参数")
 
+    st.sidebar.markdown("🌱 **种植参数**")
     area_mu = st.sidebar.slider("种植面积（亩）", 1000, 100000, 10000, 1000)
     variety_yield = st.sidebar.slider("品种亩产（吨干基/公顷/年）", 15, 45, 30)
     moisture_pct = st.sidebar.slider("采收含水率（%）", 20, 50, 30)
     peak_year = st.sidebar.slider("达产年数", 1, 5, 3)
     project_years = st.sidebar.slider("项目周期（年）", 10, 30, 25)
+
+    st.sidebar.markdown("💰 **市场与财务**")
     co2_price = st.sidebar.slider("碳价（元/吨CO₂）", 50, 200, 100)
     wet_price = st.sidebar.slider("湿料单价（元/吨）", 100, 500, 300)
+    discount_rate = st.sidebar.slider("折现率（NPV/IRR用）", 0.02, 0.15, 0.08, 0.01)
+
+    st.sidebar.markdown("🌿 **种苗参数**")
     seedling_density = st.sidebar.slider("定植密度（株/亩）", 400, 1200, 800)
     seedling_price = st.sidebar.slider("种苗单价（元/株）", 1.0, 5.0, 3.0, 0.1)
     survival_rate = st.sidebar.slider("首年成活率", 0.5, 1.0, 0.9, 0.05)
-    discount_rate = st.sidebar.slider("折现率（NPV/IRR用）", 0.02, 0.15, 0.08, 0.01)
 
     st.sidebar.divider()
     st.sidebar.markdown("📖 数据来源：IPCC指南、学术期刊、碳市场公开数据")
