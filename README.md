@@ -19,7 +19,7 @@
 ### 安装
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/super-bamboo-toolkit.git
+git clone https://github.com/TerryLu1986/super-bamboo-toolkit.git
 cd super-bamboo-toolkit
 pip install -r requirements.txt
 ```
