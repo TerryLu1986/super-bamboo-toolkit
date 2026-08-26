@@ -7,7 +7,11 @@ from src.utils import load_config
 def _seedling_defaults():
     """从 config/default_params.yaml 读取种苗默认参数
 
-    读取失败或键缺失时回退到内置默认值, 保证模块可独立运行。
+    读取失败或键缺失时回退到内置默认值，保证模块可独立运行。
+
+    Returns:
+        dict: 种苗默认参数字典，键为 density_per_mu / survival_rate /
+              price_per_seedling / batch_size_mu / batch_interval_days
     """
     defaults = {
         "density_per_mu": 800,
