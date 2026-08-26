@@ -188,6 +188,35 @@ def test_cli_smoke(tmp_path, capsys):
     assert "IRR" in content  # 报告含NPV/IRR章节
 
 
+def test_cli_new_flags_flow_through(capsys):
+    """--survival-rate/--discount-rate 应真实作用于种苗需求与NPV折现率"""
+    from src.cli import main
+    rc = main(["--area", "1000", "--survival-rate", "0.8", "--discount-rate", "0.10"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    # 1000亩×800株/亩÷0.8 = 1,000,000 株
+    assert "1,000,000 株" in out
+    # 折现率10%应体现在NPV行
+    assert "10%" in out
+
+
+def test_cli_invalid_area_exits():
+    """非法参数（负面积）应通过argparse报错退出而非静默计算"""
+    from src.cli import main
+    with pytest.raises(SystemExit) as ei:
+        main(["--area", "-5"])
+    assert ei.value.code == 2  # argparse error 约定退出码
+
+
+def test_cli_help_no_crash(capsys):
+    """--help 应正常输出（回归测试：help含裸%曾致ValueError）"""
+    from src.cli import build_parser
+    with pytest.raises(SystemExit) as ei:
+        build_parser().parse_args(["--help"])
+    assert ei.value.code == 0
+    assert "折现率" in capsys.readouterr().out
+
+
 # === project_calculator ===
 
 from src.project_calculator import build_report, compute_all, fmt, tornado_npv
