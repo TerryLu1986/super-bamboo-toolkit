@@ -1,0 +1,34 @@
+# 超级芦竹全产业链计算 - 默认参数
+# 所有参数均可覆盖，此处仅为合理默认值
+# 数据来源均为公开学术文献和政府报告
+
+biomass:
+  area_mu: 10000                    # 种植面积（亩）
+  variety_yield_t_ha: 30            # 丰产期亩产（吨干基/公顷/年）
+  moisture_pct: 30                  # 采收含水率（%）
+  peak_year: 3                      # 达产年数
+  year1_ratio: 0.3                  # 第1年产量占比
+  year2_ratio: 0.6                  # 第2年产量占比
+  year3_ratio: 0.8                  # 第3年产量占比
+  project_years: 25                 # 项目周期（年）
+
+carbon:
+  carbon_content: 0.45              # 干物质碳含量（IPCC默认值）
+  c_to_co2: 3.67                    # 碳转CO2系数（44/12）
+  soil_c_rate_t_ha: 2.0             # 土壤年固碳（吨碳/公顷/年）
+  co2_price_per_ton: 100            # 碳价（元/吨CO2）
+  forestry_c_rate_t_mu: 1.0         # 传统林业碳汇（吨CO2/万亩/年）
+
+economics:
+  wet_price_per_ton: 300            # 湿料市场单价（元/吨）
+  pellet_conversion_rate: 0.4       # 湿料→颗粒转化率
+  pellet_price_per_ton: 800         # 颗粒销售单价（元/吨）
+  pellet_processing_cost: 200       # 颗粒加工成本（元/吨湿料）
+  discount_rate: 0.08               # 折现率（用于NPV计算）
+
+seedling:
+  density_per_mu: 800               # 定植密度（株/亩）
+  survival_rate: 0.9                # 首年成活率
+  price_per_seedling: 3.0           # 种苗单价（元/株）
+  batch_size_mu: 5000               # 每批种植面积（亩）
+  batch_interval_days: 30           # 批次间隔（天）

@@ -1,0 +1,36 @@
+# 公开数据来源索引
+# 本工具所有参考数据均来自以下公开来源
+
+references:
+  - id: ipcc_2006
+    title: "IPCC 2006 Guidelines for National Greenhouse Gas Inventories"
+    source: "Intergovernmental Panel on Climate Change"
+    url: "https://www.ipcc-nggip.iges.or.jp/public/2006gl/"
+    used_for: "碳含量默认值(45%), 碳转CO2系数(3.67)"
+
+  - id: arundo_yield
+    title: "芦竹生物质产量研究综述"
+    source: "中国知网/学术期刊"
+    used_for: "产量范围(15-45吨干基/公顷/年), 达产周期"
+
+  - id: soil_carbon
+    title: "多年生能源草土壤固碳研究"
+    source: "Soil Biology and Biochemistry / Global Change Biology Bioenergy"
+    used_for: "土壤年固碳率(1.5-3.0吨碳/公顷/年)"
+
+  - id: china_carbon_market
+    title: "全国碳排放权交易市场公开数据"
+    source: "上海环境能源交易所"
+    url: "https://www.cneeex.com/"
+    used_for: "碳价参考区间(70-100元/吨)"
+
+  - id: nea_biomass
+    title: "国家能源局生物质能发展规划"
+    source: "国家能源局"
+    url: "http://www.nea.gov.cn/"
+    used_for: "行业政策背景, 产业规模数据"
+
+  - id: nfga_bamboo
+    title: "国家林草局竹产业发展报告"
+    source: "国家林业和草原局"
+    used_for: "芦竹/竹类种植面积, 产业分布"
