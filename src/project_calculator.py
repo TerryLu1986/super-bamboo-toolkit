@@ -225,3 +225,92 @@ def build_report(r, investment=None, annual_cost=None, discount_rate=None):
 本报告为参数化估算，不构成投资建议。
 """
     return report
+
+
+def tornado_npv(r, investment=50_000_000.0, annual_cost=5_000_000.0, swing=0.2):
+    """多因素敏感性分析（龙卷风图数据源）
+
+    对六个关键参数分别施加 ±swing 扰动（其余保持基准值），重算全链条 NPV，
+    返回各因素对 NPV 的影响幅度，按影响大小降序排列：
+
+    - 亩产（variety_yield）：影响产量 → 原料收入 + 碳资产收益
+    - 湿料单价（wet_price）：影响原料收入
+    - 碳价（co2_price）：影响碳资产收益
+    - 折现率（discount_rate）：影响资金时间价值
+    - 总投资（investment）：影响初始现金流
+    - 年运营成本（annual_cost）：影响逐年净现金流
+
+    Args:
+        r: compute_all() 返回的基准结果字典（基准参数取其中的回显值）
+        investment: 基准总投资额（元）
+        annual_cost: 基准年运营成本（元）
+        swing: 扰动幅度，默认 0.2（即 ±20%）
+
+    Returns:
+        dict: {"base_npv": 基准NPV(元),
+               "factors": [{"name", "low", "high", "low_delta", "high_delta", "impact"}, ...]}
+              low/high 为该参数取 -swing/+swing 时的 NPV，delta 为相对基准的变化量，
+              impact = max(|low_delta|, |high_delta|)，factors 按 impact 降序。
+
+    Example:
+        >>> t = tornado_npv(compute_all(area_mu=1000), 5_000_000, 500_000)
+        >>> len(t["factors"])
+        6
+        >>> t["factors"][0]["impact"] >= t["factors"][-1]["impact"]
+        True
+    """
+    years = r["project_years"]
+    dr = r["discount_rate"]
+    base_rev = r["total_rev"]
+
+    def npv_of(rev, inv=investment, cost=annual_cost, rate=dr):
+        return npv_analysis(inv, rev, cost, years, rate)["npv"]
+
+    def rev_with(**over):
+        """在基准参数上覆盖个别参数后重算综合年收益"""
+        base = dict(
+            area_mu=r["area_mu"],
+            variety_yield=r["variety_yield"],
+            moisture_pct=r["moisture_pct"],
+            peak_year=r["peak_year"],
+            project_years=years,
+        )
+        base.update(over)
+        return compute_all(**base)["total_rev"]
+
+    base_npv = npv_of(base_rev)
+    factors = []
+
+    # 产量侧参数：扰动后需重算收益链
+    for name, key in (("亩产", "variety_yield"), ("湿料单价", "wet_price"), ("碳价", "co2_price")):
+        v = r[key]
+        low = npv_of(rev_with(**{key: v * (1 - swing)}))
+        high = npv_of(rev_with(**{key: v * (1 + swing)}))
+        factors.append((name, low, high))
+
+    # 折现率：收益不变，只改资金时间价值
+    low = npv_of(base_rev, rate=dr * (1 - swing))
+    high = npv_of(base_rev, rate=dr * (1 + swing))
+    factors.append(("折现率", low, high))
+
+    # 投资与运营成本：直接作用于 NPV 输入
+    factors.append(("总投资",
+                    npv_of(base_rev, inv=investment * (1 - swing)),
+                    npv_of(base_rev, inv=investment * (1 + swing))))
+    factors.append(("年运营成本",
+                    npv_of(base_rev, cost=annual_cost * (1 - swing)),
+                    npv_of(base_rev, cost=annual_cost * (1 + swing))))
+
+    rows = [
+        {
+            "name": name,
+            "low": low,
+            "high": high,
+            "low_delta": low - base_npv,
+            "high_delta": high - base_npv,
+            "impact": max(abs(low - base_npv), abs(high - base_npv)),
+        }
+        for name, low, high in factors
+    ]
+    rows.sort(key=lambda x: x["impact"], reverse=True)
+    return {"base_npv": base_npv, "factors": rows}

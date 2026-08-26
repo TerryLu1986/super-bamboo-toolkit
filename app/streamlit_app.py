@@ -22,7 +22,7 @@ import pandas as pd
 import plotly.graph_objects as go
 
 from src.economic_model import npv_analysis, raw_material_revenue, roi_analysis
-from src.project_calculator import build_report, compute_all, fmt
+from src.project_calculator import build_report, compute_all, fmt, tornado_npv
 
 # ==================== 绿色系主题色板 ====================
 GREEN_THEME = {
@@ -256,6 +256,39 @@ def render_economic_tab(r):
     )
     apply_green_theme(fig4, "湿料单价敏感性分析（综合年收益）", "价格变动幅度", "综合年收益（万元）", height=420)
     st.plotly_chart(fig4, use_container_width=True)
+
+    # 多因素敏感性（龙卷风图）：六个关键参数 ±20% 扰动对 NPV 的影响
+    st.subheader("🌪️ 多因素敏感性（龙卷风图）：关键参数 ±20% 对 NPV 的影响")
+    tor = tornado_npv(r, investment, annual_cost, swing=0.2)
+    facs = tor["factors"][::-1]  # 反转使影响最大的因素显示在图顶部
+    names = [f["name"] for f in facs]
+    lows = [f["low_delta"] / 10000 for f in facs]
+    highs = [f["high_delta"] / 10000 for f in facs]
+
+    fig5 = go.Figure()
+    fig5.add_trace(go.Bar(
+        y=names, x=highs, orientation="h", name="参数 +20%",
+        marker_color=GREEN_THEME["primary"],
+        text=[f"{v:+,.0f}" for v in highs], textposition="outside",
+        hovertemplate="%{y} +20%%：NPV 变动 %{x:,.0f} 万元<extra></extra>",
+    ))
+    fig5.add_trace(go.Bar(
+        y=names, x=lows, orientation="h", name="参数 −20%",
+        marker_color=GREEN_THEME["light"],
+        text=[f"{v:+,.0f}" for v in lows], textposition="outside",
+        hovertemplate="%{y} −20%%：NPV 变动 %{x:,.0f} 万元<extra></extra>",
+    ))
+    fig5.add_vline(x=0, line_dash="dot", line_color=GREEN_THEME["dark"])
+    apply_green_theme(
+        fig5,
+        f"NPV 敏感性排序（基准 NPV {tor['base_npv'] / 10000:,.0f} 万元）",
+        "ΔNPV（万元）", "扰动因素", height=430,
+    )
+    st.plotly_chart(fig5, use_container_width=True)
+    st.caption(
+        "每因素两根柱分别为该参数上浮/下浮 20% 时 NPV 相对基准的变化量，"
+        "按影响幅度从大到小排序——亩产与售价类因素左右项目成败，投资与折现率次之。"
+    )
 
     return investment, annual_cost
 
